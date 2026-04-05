@@ -1,8 +1,8 @@
 import { useEffect, useRef, useState } from "react";
 import ChatInput from "./ChatInput";
-import "./Chatbox.css";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { zip } from "../utils";
+import "./Chatbox.css";
 
 interface MessageResponse {
     text: string,
@@ -20,20 +20,18 @@ function Chatbox() {
         messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
     }, [inMessages, outMessages]);
 
-    useEffect(() => {
+    const handleNewOutMessage = async (message: string) => {
         messageChannelRef.current = new Channel<MessageResponse>();
         messageChannelRef.current.onmessage = (response: MessageResponse) => {
             setInMessages((prev) => {
                 const updated = [...prev];
-                const lastMessage = prev[prev.length - 1];
+                const lastMessage = updated[updated.length - 1];
                 updated[updated.length - 1] = lastMessage.concat(response.text);
                 if (response.done === true && updated[updated.length - 1].length !== 0) updated.push("");
                 return updated;
             });
         };
-    }, []);
 
-    const handleNewOutMessage = async (message: string) => {
         setOutMessages((prev) => {
             const updated = [...prev];
             if (updated[updated.length - 1] === "") {
