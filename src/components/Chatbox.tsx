@@ -51,6 +51,13 @@ function Chatbox() {
     return (
         <div id="chat-container" className="m-2">
             <div id="messages">
+                {(outMessages[0] === "" && inMessages[0] === "") && (
+                    <div id="welcome-box">
+                        <h1><center><b>Welcome!</b></center></h1>
+                        <p>Start writing your first message!</p>
+                        <p>You can also feed custom text as context to the model, using the <b>Settings</b> above.</p>
+                    </div>
+                )}
                 {zip(outMessages, inMessages).map(([outMsg, inMsg], i) => (
                     <div key={i}>
                         {outMsg.length > 0 &&

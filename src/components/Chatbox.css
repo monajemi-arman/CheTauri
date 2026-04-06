@@ -7,6 +7,17 @@
     padding-bottom: 1em;
 }
 
+#welcome-box {
+    position: absolute;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -100%);
+    padding: 1rem 2rem;
+    background: #f3f3f3;
+    border-radius: 12px;
+    font-size: 1.2rem;
+}
+
 #messages {
     flex: 1;
     overflow-y: auto;
