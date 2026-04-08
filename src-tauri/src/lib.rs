@@ -1,13 +1,18 @@
-use std::{io, sync::Arc};
+use std::{
+    fs::{read_to_string, write},
+    io,
+    sync::Arc,
+};
 
 use futures_util::{lock::Mutex, StreamExt};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use tauri::{ipc::Channel, Manager, State};
-use tokio::io::{AsyncBufReadExt, BufReader};
+use tauri::{Manager, State, async_runtime::spawn, ipc::Channel};
+use tokio::{io::{AsyncBufReadExt, BufReader}};
 use tokio_util::{bytes, io::StreamReader};
 
 static OLLAMA_API: &str = "http://localhost:11434/api/generate";
+static CONFIG_PATH: &str = "config.json";
 
 #[derive(Serialize)]
 struct MessageResponse {
@@ -85,9 +90,27 @@ async fn process_out_message(
     Ok(())
 }
 
-#[derive(Default)]
+#[derive(Default, Serialize, Deserialize)]
 struct AppState {
+    model: Option<String>,
     context: Option<Vec<i64>>,
+}
+
+impl AppState {
+    fn save(&self) {
+        let contents = serde_json::to_string(&self).expect("failed to serialize app state");
+        write(CONFIG_PATH, contents)
+            .expect(&["failed to save app state to ", CONFIG_PATH].concat());
+    }
+
+    fn load(&mut self) {
+        let Ok(contents) = read_to_string(CONFIG_PATH) else {
+            return;
+        };
+        let new_app_state: AppState = serde_json::from_str(&contents)
+            .expect(&["failed to deserialize app state from ", CONFIG_PATH].concat());
+        *self = new_app_state;
+    }
 }
 
 #[cfg_attr(mobile, tauri::mobile_entry_point)]
@@ -96,7 +119,13 @@ pub fn run() {
 
     tauri::Builder::default()
         .plugin(tauri_plugin_opener::init())
-        .setup(|app| {
+        .setup(move |app| {
+            let app_state_clone = app_state.clone();
+            
+            spawn(async move {
+                app_state_clone.lock().await.load();
+            });
+            
             app.manage(app_state);
             Ok(())
         })
