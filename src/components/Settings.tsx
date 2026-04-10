@@ -15,8 +15,8 @@ function Settings() {
         return true;
     }
 
-    const handleCustomContext = async (custom_context: string) => {
-        await invoke("set_custom_context", { custom_context });
+    const handleCustomContext = async (customContext: string) => {
+        await invoke("set_custom_context", { customContext });
         await invoke("clear_context");
         return true;
     }
@@ -25,7 +25,10 @@ function Settings() {
         const stateCustomContext: string = await invoke("get_custom_context");
         setCustomContext(stateCustomContext);
     }
-    useEffect(() => { getCustomContext().catch(console.error) }, []);
+    useEffect(() => {
+        getCustomContext().catch(console.error);
+        invoke("get_model").then((x: any) => setModel(x));
+    }, []);
 
     return <div id="settings-container">
         <div>
@@ -46,7 +49,7 @@ function Settings() {
                         setSavedContext(false)
                         files[0].text().then((text) => {
                             handleCustomContext(text)
-                            .then(setSavedContext);
+                                .then(setSavedContext);
                         })
                     }
                 }} className="file-input" />
@@ -65,6 +68,13 @@ function Settings() {
                 }}
             >
                 {savedContext ? "Saved" : "Save"}
+            </button>
+            <button className={`btn btn-warning`}
+                onClick={() =>
+                    handleCustomContext("").catch(console.error)
+                }
+            >
+                Erase context
             </button>
         </div>
     </div>

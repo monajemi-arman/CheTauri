@@ -120,7 +120,7 @@ async fn get_custom_context(state: State<'_, Arc<Mutex<AppState>>>) -> Result<St
         .await
         .custom_context
         .as_ref()
-        .expect("failed to get custom context from app state")
+        .unwrap_or(&"".to_string())
         .clone())
 }
 
@@ -130,12 +130,7 @@ async fn set_custom_context(
     state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<(), ()> {
     let mut state_lock = state.lock().await;
-    let state_custom_context = state_lock
-        .custom_context
-        .as_mut()
-        .expect("failed to get mut custom context from app state");
-
-    *state_custom_context = custom_context.to_string();
+    state_lock.custom_context = Some(custom_context.to_string());
     state_lock.save();
     Ok(())
 }
@@ -148,6 +143,16 @@ async fn clear_context(state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), ()>
     Ok(())
 }
 
+#[tauri::command]
+async fn get_model(state: State<'_, Arc<Mutex<AppState>>>) -> Result<String, ()> {
+    Ok(state
+        .lock()
+        .await
+        .model
+        .as_ref()
+        .unwrap_or(&"".to_string())
+        .clone())
+}
 #[tauri::command]
 async fn set_model(model: &str, state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), ()> {
     let mut state_lock = state.lock().await;
@@ -201,7 +206,8 @@ pub fn run() {
             set_model,
             set_custom_context,
             clear_context,
-            get_custom_context
+            get_custom_context,
+            get_model,
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
