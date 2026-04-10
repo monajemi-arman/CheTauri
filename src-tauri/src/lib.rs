@@ -7,12 +7,13 @@ use std::{
 use futures_util::{lock::Mutex, StreamExt};
 use reqwest::Client;
 use serde::{Deserialize, Serialize};
-use tauri::{Manager, State, async_runtime::spawn, ipc::Channel};
-use tokio::{io::{AsyncBufReadExt, BufReader}};
+use tauri::{async_runtime::spawn, ipc::Channel, Manager, State};
+use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio_util::{bytes, io::StreamReader};
 
 static OLLAMA_API: &str = "http://localhost:11434/api/generate";
 static CONFIG_PATH: &str = "config.json";
+static FALLBACK_MODEL: &str = "tinyllama";
 
 #[derive(Serialize)]
 struct MessageResponse {
@@ -42,10 +43,32 @@ async fn process_out_message(
     channel: Channel<MessageResponse>,
     state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<(), ()> {
+    let fallback_model = FALLBACK_MODEL.to_string();
+    let state_lock = state.lock().await;
+    let context = state_lock.context.clone();
+    let mut prompt: String = message.to_string();
+
+    if context.is_none() {
+        if let Some(custom_context) = state_lock.custom_context.clone() {
+            prompt = format!(
+                "You are answering questions based on the context below.
+                Context:
+                {}
+                Question:
+                {}",
+                custom_context, message
+            );
+        }
+    }
+
     let message_request_data = MessageRequestData {
-        model: "tinyllama",
-        context: state.lock().await.context.clone(),
-        prompt: message,
+        model: state_lock
+            .model
+            .as_ref()
+            .unwrap_or(&fallback_model)
+            .as_str(),
+        context,
+        prompt: prompt.as_str(),
         stream: true,
     };
     let message_request_data =
@@ -90,9 +113,53 @@ async fn process_out_message(
     Ok(())
 }
 
+#[tauri::command]
+async fn get_custom_context(state: State<'_, Arc<Mutex<AppState>>>) -> Result<String, ()> {
+    Ok(state
+        .lock()
+        .await
+        .custom_context
+        .as_ref()
+        .expect("failed to get custom context from app state")
+        .clone())
+}
+
+#[tauri::command]
+async fn set_custom_context(
+    custom_context: &str,
+    state: State<'_, Arc<Mutex<AppState>>>,
+) -> Result<(), ()> {
+    let mut state_lock = state.lock().await;
+    let state_custom_context = state_lock
+        .custom_context
+        .as_mut()
+        .expect("failed to get mut custom context from app state");
+
+    *state_custom_context = custom_context.to_string();
+    state_lock.save();
+    Ok(())
+}
+
+#[tauri::command]
+async fn clear_context(state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), ()> {
+    let mut state_lock = state.lock().await;
+    state_lock.context = None;
+    state.lock().await.save();
+    Ok(())
+}
+
+#[tauri::command]
+async fn set_model(model: &str, state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), ()> {
+    let mut state_lock = state.lock().await;
+    state_lock.model = Some(model.to_string());
+    state_lock.save();
+    Ok(())
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct AppState {
     model: Option<String>,
+    custom_context: Option<String>,
     context: Option<Vec<i64>>,
 }
 
@@ -121,15 +188,21 @@ pub fn run() {
         .plugin(tauri_plugin_opener::init())
         .setup(move |app| {
             let app_state_clone = app_state.clone();
-            
+
             spawn(async move {
                 app_state_clone.lock().await.load();
             });
-            
+
             app.manage(app_state);
             Ok(())
         })
-        .invoke_handler(tauri::generate_handler![process_out_message])
+        .invoke_handler(tauri::generate_handler![
+            process_out_message,
+            set_model,
+            set_custom_context,
+            clear_context,
+            get_custom_context
+        ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
 }
