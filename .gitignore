@@ -1,5 +1,6 @@
 # Project specific
 ollama/
+src-tauri/config.json
 
 # Logs
 logs
