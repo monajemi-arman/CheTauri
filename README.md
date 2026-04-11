@@ -1,10 +1,16 @@
 # CheTauri
 In Persian, "che tori" means "how are you". This project is about a chatbot interface written using Tauri so I named it **CheTauri**.  
-Written with Rust (Tauri) as backend and React (Vite, Typescript) for frontend.
 
-# Screenshots
-![main app page](./public/demo-1.png)
-![settings app page](./public/demo-2.png)
+## Features
+* Chat with **custom context** support
+* **Rust** backend, **React / Vite / Typescript** frontend
+* **Cross platform** app (Linux, Windows, Android, ...) with Tauri
+
+## Screenshots
+<p align="center">
+  <img src="public/demo-1.png" width="45%" />
+  <img src="public/demo-2.png" width="45%" />
+</p>
 
 # Requirements
 * Official Docker installation with NVIDIA Cuda Runtime Container Toolkit enabled
