@@ -33,20 +33,21 @@ struct MessageRequestData<'a> {
 struct ApiResponseData {
     response: String,
     done: bool,
+    #[serde(default)]
     context: Option<Vec<i64>>,
 }
 
 // Learn more about Tauri commands at https://tauri.app/develop/calling-rust/
 #[tauri::command]
 async fn process_out_message(
-    message: &str,
+    message: String,
     channel: Channel<MessageResponse>,
     state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<(), ()> {
     let fallback_model = FALLBACK_MODEL.to_string();
-    let state_lock = state.lock().await;
+    let mut state_lock = state.lock().await;
     let context = state_lock.context.clone();
-    let mut prompt: String = message.to_string();
+    let mut prompt: String = message.clone();
 
     if context.is_none() {
         if let Some(custom_context) = state_lock.custom_context.clone() {
@@ -96,11 +97,13 @@ async fn process_out_message(
 
     while let Ok(line) = lines.next_line().await {
         let Some(line) = line else {
-            continue;
+            break;
         };
 
         if let Ok(api_response) = serde_json::from_str::<ApiResponseData>(&line) {
-            state.lock().await.context = api_response.context;
+            if let Some(api_response_context) = api_response.context {
+                state_lock.context = Some(api_response_context);
+            }
             channel
                 .send(MessageResponse {
                     text: api_response.response,
@@ -126,11 +129,11 @@ async fn get_custom_context(state: State<'_, Arc<Mutex<AppState>>>) -> Result<St
 
 #[tauri::command]
 async fn set_custom_context(
-    custom_context: &str,
+    custom_context: Option<String>,
     state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<(), ()> {
     let mut state_lock = state.lock().await;
-    state_lock.custom_context = Some(custom_context.to_string());
+    state_lock.custom_context = custom_context;
     state_lock.save();
     Ok(())
 }
@@ -139,7 +142,7 @@ async fn set_custom_context(
 async fn clear_context(state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), ()> {
     let mut state_lock = state.lock().await;
     state_lock.context = None;
-    state.lock().await.save();
+    state_lock.save();
     Ok(())
 }
 

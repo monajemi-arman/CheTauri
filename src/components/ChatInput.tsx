@@ -1,4 +1,3 @@
-import { invoke } from "@tauri-apps/api/core";
 import { Dispatch, SetStateAction, useRef, useState } from "react";
 
 export default function ChatInput(
@@ -7,14 +6,6 @@ export default function ChatInput(
 ) {
   const [value, setValue] = useState("");
   const ref: any = useRef(null);
-
-  const handleClearChat = () => {
-    invoke("clear_context")
-      .then(() => {
-        window.location.reload();
-      })
-      .catch(console.error);
-  }
 
   const handleSend = () => {
     if (!value.trim() || !ref.current.style) return;
@@ -50,9 +41,6 @@ export default function ChatInput(
         placeholder="Type a message..."
         className="textarea textarea-bordered flex-1 resize-none overflow-hidden rounded-2xl"
       />
-      <button onClick={handleClearChat} className="btn btn-error h-auto rounded-2xl text-2xl ml-1">
-        🧹
-      </button>
       <button onClick={handleSend} className="btn btn-active h-auto rounded-2xl text-2xl ml-1">
         ➤
       </button>

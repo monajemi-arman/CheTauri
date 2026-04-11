@@ -5,7 +5,7 @@ import { invoke } from "@tauri-apps/api/core";
 
 function Settings() {
     const [model, setModel] = useState("");
-    const [customContext, setCustomContext] = useState("");
+    const [customContext, setCustomContext] = useState<string | null>(null);
     const [savedModel, setSavedModel] = useState(false);
     const [savedContext, setSavedContext] = useState(false);
     const refTextArea = useRef<HTMLTextAreaElement | null>(null);
@@ -15,7 +15,8 @@ function Settings() {
         return true;
     }
 
-    const handleCustomContext = async (customContext: string) => {
+    const handleCustomContext = async (customContext: string | null) => {
+        if (customContext === "") customContext = null;
         await invoke("set_custom_context", { customContext });
         await invoke("clear_context");
         return true;
@@ -56,7 +57,7 @@ function Settings() {
             </div>
             <div className="my-4">
                 <label className="text-sl font-bold"><center>OR</center><br />Write your custom context here:</label><br />
-                <textarea ref={refTextArea} defaultValue={customContext} className="w-full border border-gray-300 rounded-md p-2" />
+                <textarea ref={refTextArea} defaultValue={customContext || ""} className="w-full border border-gray-300 rounded-md p-2" />
             </div>
             <button className={`btn ${savedContext ? "btn-success" : "btn-neutral"} my-2`}
                 onClick={() => {
@@ -71,7 +72,7 @@ function Settings() {
             </button>
             <button className={`btn btn-warning`}
                 onClick={() =>
-                    handleCustomContext("").catch(console.error)
+                    handleCustomContext(null).catch(console.error)
                 }
             >
                 Erase context

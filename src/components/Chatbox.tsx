@@ -1,4 +1,4 @@
-import { useEffect, useRef, useState } from "react";
+import { Dispatch, SetStateAction, useEffect, useRef, useState } from "react";
 import ChatInput from "./ChatInput";
 import { Channel, invoke } from "@tauri-apps/api/core";
 import { zip } from "../utils";
@@ -9,11 +9,14 @@ interface MessageResponse {
     done: boolean
 }
 
-function Chatbox() {
+function Chatbox({ clearMessages, setClearMessages }:
+    {
+        clearMessages: boolean,
+        setClearMessages: Dispatch<SetStateAction<boolean>>
+    }) {
     const [inMessages, setInMessages] = useState([""]);
     const [outMessages, setOutMessages] = useState([""]);
     const [newOutMessage, setNewOutMessage] = useState<string>("");
-    const messageChannelRef = useRef<Channel<MessageResponse> | null>(null);
 
     const messagesEndRef = useRef<HTMLDivElement | null>(null);
     useEffect(() => {
@@ -21,8 +24,18 @@ function Chatbox() {
     }, [inMessages, outMessages]);
 
     const handleNewOutMessage = async (message: string) => {
-        messageChannelRef.current = new Channel<MessageResponse>();
-        messageChannelRef.current.onmessage = (response: MessageResponse) => {
+        setOutMessages((prev) => {
+            const updated = [...prev];
+            if (updated[updated.length - 1] === "") {
+                updated.pop();
+            }
+            updated.push(message);
+            return updated;
+        });
+
+        const messageChannel = new Channel<MessageResponse>();
+        messageChannel.onmessage = (response: MessageResponse) => {
+            console.log("3")
             setInMessages((prev) => {
                 const updated = [...prev];
                 const lastMessage = updated[updated.length - 1];
@@ -32,21 +45,26 @@ function Chatbox() {
             });
         };
 
-        setOutMessages((prev) => {
-            const updated = [...prev];
-            if (updated[updated.length - 1] === "") {
-                updated.pop();
-            }
-            updated.push(message);
-            return updated;
-        });
-        await invoke("process_out_message", { message, channel: messageChannelRef.current });
+        await invoke("process_out_message", { message, channel: messageChannel });
     }
     useEffect(() => {
         if (newOutMessage === "") return;
-        handleNewOutMessage(newOutMessage).catch(console.error);
-        setNewOutMessage("");
+        handleNewOutMessage(newOutMessage)
+            .then(() => {
+                setNewOutMessage("");
+            })
+            .catch(console.error);
     }, [newOutMessage])
+
+    useEffect(() => {
+        if (clearMessages === true) {
+            setInMessages([""]);
+            setOutMessages([""]);
+        }
+        else {
+            setClearMessages(false);
+        }
+    }, [clearMessages]);
 
     return (
         <div id="chat-container" className="m-2">
