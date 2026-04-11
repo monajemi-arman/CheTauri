@@ -5,15 +5,22 @@ import { invoke } from "@tauri-apps/api/core";
 
 function Settings() {
     const [model, setModel] = useState("");
+    const [llmApi, setLlmApi] = useState("");
     const [customContext, setCustomContext] = useState<string | null>(null);
     const [savedModel, setSavedModel] = useState(false);
+    const [savedLlmApi, setSavedLlmApi] = useState(false);
     const [savedContext, setSavedContext] = useState(false);
     const refTextArea = useRef<HTMLTextAreaElement | null>(null);
+
+    const handleLlmApi = async (llmApi: string) => {
+        await invoke("set_llm_api", { llmApi });
+        return true;
+    };
 
     const handleModel = async (model: string) => {
         await invoke("set_model", { model });
         return true;
-    }
+    };
 
     const handleCustomContext = async (customContext: string | null) => {
         if (customContext === "") customContext = null;
@@ -29,10 +36,28 @@ function Settings() {
     useEffect(() => {
         getCustomContext().catch(console.error);
         invoke("get_model").then((x: any) => setModel(x));
+        invoke("get_llm_api").then((x: any) => setLlmApi(x));
     }, []);
 
     return <div id="settings-container">
         <div>
+            <div className="space-y-2 relative w-64">
+            <label className="text-sl font-bold">Ollama API URL</label>
+            <input
+                className="border rounded px-3 py-2 w-full"
+                value={llmApi}
+                onChange={(e) => {
+                    setLlmApi(e.target.value);
+                    setSavedModel(false);
+                }}
+                placeholder="http://localhost:11434/api/generate"
+            />
+            <button className={`btn ${savedLlmApi ? "btn-success" : "btn-neutral"} my-2`}
+                onClick={() => handleLlmApi(llmApi).then(setSavedLlmApi)}
+            >
+                {savedLlmApi ? "Saved" : "Save"}
+            </button>
+            </div>
             <ModelSelect value={model} setValue={setModel} setSavedModel={setSavedModel} />
             <button className={`btn ${savedModel ? "btn-success" : "btn-neutral"} my-2`}
                 onClick={() => handleModel(model).then(setSavedModel)}

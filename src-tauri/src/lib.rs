@@ -11,7 +11,7 @@ use tauri::{async_runtime::spawn, ipc::Channel, Manager, State};
 use tokio::io::{AsyncBufReadExt, BufReader};
 use tokio_util::{bytes, io::StreamReader};
 
-static OLLAMA_API: &str = "http://localhost:11434/api/generate";
+static FALLBACK_OLLAMA_API: &str = "http://localhost:11434/api/generate";
 static CONFIG_PATH: &str = "config.json";
 static FALLBACK_MODEL: &str = "tinyllama";
 
@@ -44,8 +44,10 @@ async fn process_out_message(
     channel: Channel<MessageResponse>,
     state: State<'_, Arc<Mutex<AppState>>>,
 ) -> Result<(), ()> {
+    let ollama_api_fallback = &FALLBACK_OLLAMA_API.to_string();
     let fallback_model = FALLBACK_MODEL.to_string();
     let mut state_lock = state.lock().await;
+    let ollama_api = state_lock.ollama_api.as_ref().unwrap_or(ollama_api_fallback);
     let context = state_lock.context.clone();
     let mut prompt: String = message.clone();
 
@@ -77,7 +79,7 @@ async fn process_out_message(
 
     let client = Client::new();
     let Ok(res) = client
-        .post(OLLAMA_API)
+        .post(ollama_api)
         .body(message_request_data)
         .send()
         .await
@@ -164,8 +166,27 @@ async fn set_model(model: &str, state: State<'_, Arc<Mutex<AppState>>>) -> Resul
     Ok(())
 }
 
+#[tauri::command]
+async fn get_llm_api(state: State<'_, Arc<Mutex<AppState>>>) -> Result<String, ()> {
+    Ok(state
+        .lock()
+        .await
+        .ollama_api
+        .as_ref()
+        .unwrap_or(&FALLBACK_OLLAMA_API.to_string())
+        .clone())
+}
+#[tauri::command]
+async fn set_llm_api(llm_api: &str, state: State<'_, Arc<Mutex<AppState>>>) -> Result<(), ()> {
+    let mut state_lock = state.lock().await;
+    state_lock.ollama_api = Some(llm_api.to_string());
+    state_lock.save();
+    Ok(())
+}
+
 #[derive(Default, Serialize, Deserialize)]
 struct AppState {
+    ollama_api: Option<String>,
     model: Option<String>,
     custom_context: Option<String>,
     context: Option<Vec<i64>>,
@@ -206,11 +227,13 @@ pub fn run() {
         })
         .invoke_handler(tauri::generate_handler![
             process_out_message,
-            set_model,
             set_custom_context,
             clear_context,
             get_custom_context,
             get_model,
+            set_model,
+            get_llm_api,
+            set_llm_api
         ])
         .run(tauri::generate_context!())
         .expect("error while running tauri application");
