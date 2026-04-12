@@ -13,6 +13,7 @@ In Persian, "che tori" means "how are you". This project is about a chatbot inte
 </p>
 
 # Requirements
+* You need to install 'webkit2gtk' on Linux, or 'Microsoft Edge Webview2 Runtime' on Windows
 * Official Docker installation with NVIDIA Cuda Runtime Container Toolkit enabled
 
 # Usage
